@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: kalascan
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: MAIZE_MODEL_URL
+        value: https://drive.google.com/uc?export=download&id=19faa95SxZDMeeN63RklffWxfTKUrr8V3
+      - key: BEANS_MODEL_URL
+        value: https://drive.google.com/uc?export=download&id=1Sh36ycwrwCB0m-4qlL70bcxBVEOA9-IN
+      - key: BANANA_MODEL_URL
+        value: https://drive.google.com/uc?export=download&id=1WR0oKF9K5ndTEcswW9Xwflw_LcPFZ-6V
+      - key: TOMATO_MODEL_URL
+        value: https://drive.google.com/uc?export=download&id=1Qjtv0ZU8Cn0TrNr8lYmz_2scmFf4H8xn
+      - key: COFFEE_MODEL_URL
+        value: https://drive.google.com/uc?export=download&id=1s7bNaTqfdp7mDvp-sfW9EzobSdFRLXVe
+      - key: CASSAVA_MODEL_URL
+        value: https://drive.google.com/uc?export=download&id=1C5rCIwAOkrdDEgEEFyfb60rIgOHnVmj4
