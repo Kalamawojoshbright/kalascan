@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KalaScan</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f0f7f0; min-height: 100vh; }
+        .header { background: #2e7d32; color: white; padding: 18px 20px; text-align: center; }
+        .header h1 { font-size: 26px; }
+        .header p { font-size: 12px; opacity: 0.85; margin-top: 3px; }
+        .container { padding: 16px; max-width: 500px; margin: auto; }
+        #home-screen { display: block; }
+        .section-title { font-size: 15px; color: #555; margin: 16px 0 10px; font-weight: bold; }
+        .crop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .crop-card {
+            background: white; border-radius: 14px; padding: 16px 8px;
+            text-align: center; cursor: pointer; border: 2px solid transparent;
+            transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        }
+        .crop-card:active { transform: scale(0.96); }
+        .crop-card.selected { border-color: #2e7d32; background: #e8f5e9; }
+        .crop-card .emoji { font-size: 32px; }
+        .crop-card .name { font-size: 12px; font-weight: bold; color: #333; margin-top: 6px; }
+        #scanner-screen { display: none; }
+        .back-btn {
+            background: none; border: none; color: #2e7d32;
+            font-size: 15px; font-weight: bold; padding: 8px 0; cursor: pointer; margin-bottom: 10px;
+        }
+        .selected-crop-bar {
+            background: #2e7d32; color: white; border-radius: 12px;
+            padding: 10px 16px; font-size: 14px; font-weight: bold;
+            text-align: center; margin-bottom: 14px;
+        }
+        .camera-container {
+            position: relative; background: #000;
+            border-radius: 16px; overflow: hidden; width: 100%; aspect-ratio: 4/3;
+        }
+        #video { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .scan-overlay {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%; aspect-ratio: 1;
+            border: 3px solid rgba(255,255,255,0.8);
+            border-radius: 16px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.35);
+            pointer-events: none;
+        }
+        .scan-line {
+            position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, transparent, #4caf50, transparent);
+            animation: scanAnim 2s linear infinite;
+        }
+        @keyframes scanAnim { 0% { top: 0; } 100% { top: 100%; } }
+        .camera-hint { text-align: center; font-size: 13px; color: #555; margin: 10px 0; }
+        .btn {
+            display: block; width: 100%; padding: 14px; border: none;
+            border-radius: 12px; font-size: 16px; font-weight: bold;
+            cursor: pointer; margin-top: 12px;
+        }
+        .btn-green { background: #2e7d32; color: white; }
+        .btn-outline { background: white; color: #2e7d32; border: 2px solid #2e7d32; }
+        .divider { text-align: center; color: #aaa; font-size: 13px; margin: 10px 0; }
+        #gallery-input { display: none; }
+        #result-screen { display: none; }
+        .result-card { background: white; border-radius: 16px; padding: 20px; margin-top: 14px; }
+        .result-image {
+            width: 100%; border-radius: 12px; margin-bottom: 14px;
+            max-height: 200px; object-fit: cover; display: none;
+        }
+        .disease-name { font-size: 22px; font-weight: bold; color: #2e7d32; text-align: center; }
+        .disease-name.danger { color: #c62828; }
+        .disease-name.critical { color: #b71c1c; }
+        .disease-name.warning { color: #e65100; }
+        .severity-badge {
+            display: block; width: fit-content; margin: 6px auto;
+            padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold;
+        }
+        .sev-none { background: #e8f5e9; color: #2e7d32; }
+        .sev-medium { background: #fff3e0; color: #e65100; }
+        .sev-high { background: #fce4ec; color: #c62828; }
+        .sev-critical { background: #b71c1c; color: white; }
+        .description { font-size: 14px; color: #555; margin: 10px 0 16px; text-align: center; }
+        .treatment-title { font-weight: bold; color: #333; margin-bottom: 8px; }
+        .treatment-step {
+            background: #f0f7f0; border-left: 4px solid #2e7d32;
+            padding: 10px 12px; border-radius: 8px; margin-bottom: 8px;
+            font-size: 14px; color: #333;
+        }
+        .treatment-step.critical-step { border-left-color: #b71c1c; background: #fff5f5; }
+        .error-card {
+            background: #fff3e0; border-radius: 16px;
+            padding: 20px; margin-top: 14px; text-align: center;
+        }
+        .error-card .emoji { font-size: 48px; }
+        .error-card h3 { color: #e65100; margin: 10px 0 6px; }
+        .error-card p { color: #555; font-size: 14px; }
+        .loading {
+            text-align: center; color: #2e7d32; font-weight: bold;
+            display: none; margin-top: 16px; font-size: 15px;
+        }
+        .footer { text-align: center; padding: 24px 20px 16px; font-size: 12px; color: #aaa; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>🌿 KalaScan</h1>
+    <p>Created by Kalamawo Joshua Bright — Senior 5, Uganda</p>
+</div>
+
+<div class="container" id="home-screen">
+    <div class="section-title">Select your crop to scan:</div>
+    <div class="crop-grid">
+        <div class="crop-card" onclick="selectCrop('maize', this)">
+            <div class="emoji">🌽</div><div class="name">Maize</div>
+        </div>
+        <div class="crop-card" onclick="selectCrop('beans', this)">
+            <div class="emoji">🫘</div><div class="name">Beans</div>
+        </div>
+        <div class="crop-card" onclick="selectCrop('banana', this)">
+            <div class="emoji">🍌</div><div class="name">Banana</div>
+        </div>
+        <div class="crop-card" onclick="selectCrop('tomato', this)">
+            <div class="emoji">🍅</div><div class="name">Tomato</div>
+        </div>
+        <div class="crop-card" onclick="selectCrop('coffee', this)">
+            <div class="emoji">☕</div><div class="name">Coffee</div>
+        </div>
+        <div class="crop-card" onclick="selectCrop('cassava', this)">
+            <div class="emoji">🌿</div><div class="name">Cassava</div>
+        </div>
+    </div>
+</div>
+
+<div class="container" id="scanner-screen">
+    <button class="back-btn" onclick="goHome()">← Back</button>
+    <div class="selected-crop-bar" id="selected-crop-bar">🌽 Scanning: Maize</div>
+    <div class="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <div class="scan-overlay"><div class="scan-line"></div></div>
+    </div>
+    <p class="camera-hint">📋 Place the leaf inside the box, then tap Scan</p>
+    <button class="btn btn-green" onclick="captureAndScan()">🔍 Scan Leaf</button>
+    <div class="divider">— or —</div>
+    <button class="btn btn-outline" onclick="document.getElementById('gallery-input').click()">
+        🖼️ Choose from Gallery
+    </button>
+    <input type="file" id="gallery-input" accept="image/*" onchange="scanFromGallery(event)">
+    <div class="loading" id="loading">⏳ Analysing your leaf...</div>
+</div>
+
+<div class="container" id="result-screen">
+    <button class="back-btn" onclick="goScanner()">← Scan Again</button>
+    <div id="result-content"></div>
+    <button class="btn btn-green" onclick="goScanner()" style="margin-top:16px">🔍 Scan Another Leaf</button>
+    <button class="btn btn-outline" onclick="goHome()" style="margin-top:10px">🏠 Change Crop</button>
+</div>
+
+<div class="footer">KalaScan v1.0 — Helping Ugandan farmers 🌱</div>
+<canvas id="canvas" style="display:none"></canvas>
+
+<script>
+let selectedCrop = null;
+let stream = null;
+const cropEmojis = {
+    maize:'🌽', beans:'🫘', banana:'🍌',
+    tomato:'🍅', coffee:'☕', cassava:'🌿'
+};
+
+function selectCrop(crop, el) {
+    selectedCrop = crop;
+    document.querySelectorAll('.crop-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    setTimeout(() => {
+        document.getElementById('home-screen').style.display = 'none';
+        document.getElementById('scanner-screen').style.display = 'block';
+        document.getElementById('result-screen').style.display = 'none';
+        document.getElementById('selected-crop-bar').textContent =
+            cropEmojis[crop] + ' Scanning: ' + crop.charAt(0).toUpperCase() + crop.slice(1);
+        startCamera();
+    }, 150);
+}
+
+function startCamera() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); }
+    navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    }).then(s => {
+        stream = s;
+        document.getElementById('video').srcObject = s;
+    }).catch(() => {
+        alert('Camera not available. Please use gallery instead.');
+    });
+}
+
+function captureAndScan() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(blob => { sendToServer(blob, null); }, 'image/jpeg', 0.9);
+}
+
+function scanFromGallery(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => { sendToServer(file, e.target.result); };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+function sendToServer(blob, previewSrc) {
+    document.getElementById('loading').style.display = 'block';
+    const formData = new FormData();
+    formData.append('image', blob, 'leaf.jpg');
+    formData.append('crop', selectedCrop);
+    fetch('/predict', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('loading').style.display = 'none';
+        showResult(data, previewSrc);
+    })
+    .catch(() => {
+        document.getElementById('loading').style.display = 'none';
+        alert('Something went wrong. Please try again.');
+    });
+}
+
+function showResult(data, previewSrc) {
+    document.getElementById('scanner-screen').style.display = 'none';
+    document.getElementById('result-screen').style.display = 'block';
+    const content = document.getElementById('result-content');
+    if (data.error) {
+        content.innerHTML = `
+            <div class="error-card">
+                <div class="emoji">⚠️</div>
+                <h3>${data.error}</h3>
+                <p>${data.message}</p>
+            </div>`;
+        return;
+    }
+    const sev = data.severity || 'None';
+    const sevClass = sev==='None'?'sev-none':sev==='Medium'?'sev-medium':sev==='High'?'sev-high':'sev-critical';
+    const nameClass = sev==='None'?'':sev==='Medium'?'warning':sev==='High'?'danger':'critical';
+    const cleanName = data.disease.replace(/Tomato___/g,'').replace(/_/g,' ');
+    const isCritical = sev === 'Critical';
+    const treatmentsHTML = data.treatments.map((t,i) =>
+        `<div class="treatment-step ${isCritical?'critical-step':''}">${i+1}. ${t}</div>`
+    ).join('');
+    const previewHTML = previewSrc ?
+        `<img class="result-image" src="${previewSrc}" style="display:block">` : '';
+    content.innerHTML = `
+        <div class="result-card">
+            ${previewHTML}
+            <div class="disease-name ${nameClass}">${cleanName}</div>
+            <div class="severity-badge ${sevClass}">Severity: ${sev}</div>
+            <div class="description">${data.description}</div>
+            <div class="treatment-title">📋 Treatment Steps:</div>
+            ${treatmentsHTML}
+        </div>`;
+}
+
+function goHome() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    document.getElementById('home-screen').style.display = 'block';
+    document.getElementById('scanner-screen').style.display = 'none';
+    document.getElementById('result-screen').style.display = 'none';
+}
+
+function goScanner() {
+    document.getElementById('result-screen').style.display = 'none';
+    document.getElementById('scanner-screen').style.display = 'block';
+    startCamera();
+}
+</script>
+</body>
+  </html>
